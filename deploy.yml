@@ -22,15 +22,15 @@ jobs:
           node-version: '18'
           
       - name: Install dependencies
-        run: npm ci
+        run: npm install
         
-      - name: Build
-        run: npm run build
+      - name: Build for web
+        run: npx expo export --platform web --output-dir dist
         
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v2
         with:
-          path: './build'
+          path: './dist'
 
   deploy:
     environment:
