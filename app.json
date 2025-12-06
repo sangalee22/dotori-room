@@ -11,6 +11,9 @@
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
+    "experiments": {
+      "baseUrl": "/dotori-room"
+    }
     },
     "ios": {
       "supportsTablet": true
