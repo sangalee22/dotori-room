@@ -1,6 +1,6 @@
 import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, ScrollView, Image, useWindowDimensions, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, Image, useWindowDimensions, TouchableOpacity, Animated, ActivityIndicator, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { ToastProvider } from './contexts/ToastContext';
 import MainHeader from './components/MainHeader';
@@ -15,7 +15,14 @@ import BestBook from './components/BestBook';
 import Navigator from './components/Navigator';
 import BottomNavigation from './components/BottomNavigation';
 import BookDetail from './screens/BookDetail';
+import SearchScreen from './screens/SearchScreen';
 import { Colors, Typography, FontWeights, Spacing, BorderRadius } from './styles';
+import { fetchBestsellers, CATEGORY_LIST } from './services/aladinApi';
+
+// 웹에서 Min Sans 폰트 로드
+if (Platform.OS === 'web') {
+  require('./styles/fonts.css');
+}
 
 // Book cover images
 const bookCoverMower = require('./assets/book-cover-mower.png');
@@ -25,10 +32,21 @@ export default function App() {
   const [activeTab, setActiveTab] = React.useState('종합');
   const [activeBestReviewPage, setActiveBestReviewPage] = React.useState(0);
   const [activeBottomTab, setActiveBottomTab] = React.useState('home');
-  const [currentView, setCurrentView] = React.useState('home'); // 'home' or 'bookDetail'
+  const [currentView, setCurrentView] = React.useState('home'); // 'home', 'bookDetail', or 'search'
+  const [previousView, setPreviousView] = React.useState('home'); // Track previous view for back navigation
   const [selectedBook, setSelectedBook] = React.useState(null);
   const [favoriteBooks, setFavoriteBooks] = React.useState(new Set()); // Store favorite book titles
+  const [recentBooks, setRecentBooks] = React.useState([]); // Store recently viewed books
+  const [recentSearches, setRecentSearches] = React.useState([]); // Store recent search terms
+  const [searchText, setSearchText] = React.useState(''); // Search input text
+  const [hasSearched, setHasSearched] = React.useState(false); // Whether user has performed a search
+  const [searchResults, setSearchResults] = React.useState([]); // Search results
   const bookListScrollRef = React.useRef(null);
+
+  // 알라딘 API 상태 관리
+  const [bestBooks, setBestBooks] = React.useState([]);
+  const [isLoadingBooks, setIsLoadingBooks] = React.useState(false);
+  const [booksError, setBooksError] = React.useState(null);
 
   // Toggle favorite book
   const toggleFavorite = (bookTitle) => {
@@ -43,71 +61,76 @@ export default function App() {
     });
   };
 
-  // Mock data for each category - will be replaced with API data
-  const bestBooksByCategory = {
-    '종합': [
-      { rank: 1, title: '도시인의 월든', author: '박혜윤' },
-      { rank: 2, title: '아침이 달라지는\n저녁 루틴의 힘', author: '류한빈' },
-      { rank: 3, title: '트렌드 코리아 2026', author: '김난도' },
-      { rank: 4, title: '사피엔스', author: '유발 하라리' },
-      { rank: 5, title: '총 균 쇠', author: '재레드 다이아몬드' },
-      { rank: 6, title: '습관의 힘', author: '찰스 두히그' },
-      { rank: 7, title: '미라클 모닝', author: '할 엘로드' },
-      { rank: 8, title: '코스모스', author: '칼 세이건' },
-    ],
-    '소설': [
-      { rank: 1, title: '싯다르타', author: '헤르만 헤세' },
-      { rank: 2, title: '모우어', author: '천선란' },
-      { rank: 3, title: '혼모노', author: '성해나' },
-      { rank: 4, title: '달러구트 꿈 백화점', author: '이미예' },
-      { rank: 5, title: '아몬드', author: '손원평' },
-      { rank: 6, title: '파쇄', author: '구병모' },
-      { rank: 7, title: '사탄탱고', author: '크러스너호르커이 라슬로' },
-      { rank: 8, title: '채식주의자', author: '한강' },
-    ],
-    '경영/경제': [
-      { rank: 1, title: '트렌드 코리아 2026', author: '김난도' },
-      { rank: 2, title: '돈의 속성', author: '김승호' },
-      { rank: 3, title: '부의 추월차선', author: 'MJ 드마코' },
-      { rank: 4, title: '넛지', author: '리처드 탈러' },
-      { rank: 5, title: '경제학 콘서트', author: '팀 하포드' },
-      { rank: 6, title: '생각에 관한 생각', author: '대니얼 카너먼' },
-      { rank: 7, title: '마케팅이다', author: '필립 코틀러' },
-      { rank: 8, title: '리더의 역할', author: '피터 드러커' },
-    ],
-    '시/에세이': [
-      { rank: 1, title: '도시인의 월든', author: '박혜윤' },
-      { rank: 2, title: '달러구트 꿈 백화점', author: '이미예' },
-      { rank: 3, title: '아몬드', author: '손원평' },
-      { rank: 4, title: '곰팡이꽃', author: '천명관' },
-      { rank: 5, title: '불편한 편의점', author: '김호연' },
-      { rank: 6, title: '연년세세', author: '황정은' },
-      { rank: 7, title: '나는 나로 살기로 했다', author: '김수현' },
-      { rank: 8, title: '죽고 싶지만 떡볶이는 먹고 싶어', author: '백세희' },
-    ],
-    '인문/교양': [
-      { rank: 1, title: '사피엔스', author: '유발 하라리' },
-      { rank: 2, title: '총 균 쇠', author: '재레드 다이아몬드' },
-      { rank: 3, title: '코스모스', author: '칼 세이건' },
-      { rank: 4, title: '정의란 무엇인가', author: '마이클 샌델' },
-      { rank: 5, title: '이기적 유전자', author: '리처드 도킨스' },
-      { rank: 6, title: '문명의 붕괴', author: '재레드 다이아몬드' },
-      { rank: 7, title: '역사의 역사', author: '유시민' },
-      { rank: 8, title: '지적 대화를 위한 넓고 얕은 지식', author: '채사장' },
-    ],
-    '취미/실용': [
-      { rank: 1, title: '아침이 달라지는\n저녁 루틴의 힘', author: '류한빈' },
-      { rank: 2, title: '습관의 힘', author: '찰스 두히그' },
-      { rank: 3, title: '미라클 모닝', author: '할 엘로드' },
-      { rank: 4, title: '아주 작은 습관의 힘', author: '제임스 클리어' },
-      { rank: 5, title: '돈의 심리학', author: '모건 하우절' },
-      { rank: 6, title: '나는 4시간만 일한다', author: '팀 페리스' },
-      { rank: 7, title: '부자 아빠 가난한 아빠', author: '로버트 기요사키' },
-      { rank: 8, title: '1만 시간의 법칙', author: '말콤 글래드웰' },
-    ],
+  // Add book to recent books
+  const addToRecentBooks = (book) => {
+    setRecentBooks((prevBooks) => {
+      // Remove duplicate if exists
+      const filtered = prevBooks.filter(b => b.isbn !== book.isbn);
+      // Add to the beginning and limit to 6 books
+      return [book, ...filtered].slice(0, 6);
+    });
   };
 
-  const currentBooks = bestBooksByCategory[activeTab] || bestBooksByCategory['종합'];
+  // Add search term to recent searches
+  const addToRecentSearches = (searchTerm) => {
+    if (!searchTerm || searchTerm.trim() === '') return;
+
+    setRecentSearches((prevSearches) => {
+      // Remove duplicate if exists
+      const filtered = prevSearches.filter(term => term !== searchTerm.trim());
+      // Add to the beginning and limit to 7 terms
+      return [searchTerm.trim(), ...filtered].slice(0, 7);
+    });
+  };
+
+  // Remove a specific search term
+  const removeRecentSearch = (searchTerm) => {
+    setRecentSearches((prevSearches) =>
+      prevSearches.filter(term => term !== searchTerm)
+    );
+  };
+
+  // Clear all recent searches
+  const clearAllRecentSearches = () => {
+    setRecentSearches([]);
+  };
+
+  // Clear all recent books
+  const clearAllRecentBooks = () => {
+    setRecentBooks([]);
+  };
+
+  // Handle book press from recent books
+  const handleRecentBookPress = (book) => {
+    setSelectedBook(book);
+    addToRecentBooks(book); // Update recent books order
+    setPreviousView(currentView); // Store current view before navigating
+    setCurrentView('bookDetail');
+  };
+
+  // 알라딘 API로 베스트셀러 데이터 가져오기
+  React.useEffect(() => {
+    const loadBestsellers = async () => {
+      setIsLoadingBooks(true);
+      setBooksError(null);
+
+      try {
+        const books = await fetchBestsellers(activeTab, 8);
+        setBestBooks(books);
+      } catch (error) {
+        console.error('베스트셀러 로딩 오류:', error);
+        setBooksError('베스트셀러를 불러오는데 실패했습니다.');
+        // 오류 발생 시 빈 배열로 설정
+        setBestBooks([]);
+      } finally {
+        setIsLoadingBooks(false);
+      }
+    };
+
+    loadBestsellers();
+  }, [activeTab]);
+
+  const currentBooks = bestBooks;
 
   // Best review data - max 6 items
   const bestReviews = [
@@ -199,7 +222,10 @@ export default function App() {
               <TouchableOpacity
             style={styles.nowReading}
             onPress={() => {
-              setSelectedBook({ title: '모우어', author: '천선란', coverImage: bookCoverMower });
+              const bookData = { title: '모우어', author: '천선란', coverImage: bookCoverMower, isbn: 'K232931529' };
+              setSelectedBook(bookData);
+              addToRecentBooks(bookData);
+              setPreviousView(currentView);
               setCurrentView('bookDetail');
             }}
             activeOpacity={0.7}
@@ -276,29 +302,58 @@ export default function App() {
             contentContainerStyle={styles.tabs}
             style={styles.tabScrollView}
           >
-            <TabElement active={activeTab === '종합'} onPress={() => setActiveTab('종합')}>종합</TabElement>
-            <TabElement active={activeTab === '소설'} onPress={() => setActiveTab('소설')}>소설</TabElement>
-            <TabElement active={activeTab === '경영/경제'} onPress={() => setActiveTab('경영/경제')}>경영/경제</TabElement>
-            <TabElement active={activeTab === '시/에세이'} onPress={() => setActiveTab('시/에세이')}>시/에세이</TabElement>
-            <TabElement active={activeTab === '인문/교양'} onPress={() => setActiveTab('인문/교양')}>인문/교양</TabElement>
-            <TabElement active={activeTab === '취미/실용'} onPress={() => setActiveTab('취미/실용')}>취미/실용</TabElement>
-          </ScrollView>
-          <ScrollView
-            ref={bookListScrollRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.bestList}
-          >
-            {currentBooks.map((book, index) => (
-              <BestBook
-                key={index}
-                rank={book.rank}
-                title={book.title}
-                author={book.author}
-                style={{ marginRight: index < currentBooks.length - 1 ? Spacing.md : 0 }}
-              />
+            {CATEGORY_LIST.map((category) => (
+              <TabElement
+                key={category.id}
+                active={activeTab === category.name}
+                onPress={() => setActiveTab(category.name)}
+              >
+                {category.label}
+              </TabElement>
             ))}
           </ScrollView>
+          {isLoadingBooks ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={Colors.primary500} />
+              <Text style={styles.loadingText}>베스트셀러를 불러오는 중...</Text>
+            </View>
+          ) : booksError ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{booksError}</Text>
+            </View>
+          ) : (
+            <ScrollView
+              ref={bookListScrollRef}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.bestList}
+            >
+              {currentBooks.map((book, index) => (
+                <BestBook
+                  key={book.isbn || index}
+                  rank={book.rank}
+                  title={book.title}
+                  author={book.author}
+                  coverImage={book.coverImage}
+                  isbn={book.isbn}
+                  onPress={() => {
+                    console.log('📚 책 선택:', book.title, 'ISBN:', book.isbn);
+                    const bookData = {
+                      isbn: book.isbn,
+                      title: book.title,
+                      author: book.author,
+                      coverImage: book.coverImage,
+                    };
+                    setSelectedBook(bookData);
+                    addToRecentBooks(bookData);
+                    setPreviousView(currentView);
+                    setCurrentView('bookDetail');
+                  }}
+                  style={{ marginRight: index < currentBooks.length - 1 ? Spacing.md : 0 }}
+                />
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         {/* Hot Rooms Section */}
@@ -479,7 +534,7 @@ export default function App() {
 
       {/* Main Header */}
       <SafeAreaView style={styles.headerContainer} edges={['top']}>
-        <MainHeader onSearch={() => console.log('Search pressed')} />
+        <MainHeader onSearch={() => setCurrentView('search')} />
       </SafeAreaView>
 
       {/* Bottom Navigation */}
@@ -494,18 +549,47 @@ export default function App() {
       </SafeAreaView>
 
       {/* BookDetail overlay */}
-      {currentView === 'bookDetail' && (
+      {currentView === 'bookDetail' && selectedBook && (
         <BookDetail
-          bookTitle={bookTitle}
-          author={selectedBook?.author || '천선란'}
-          coverImage={selectedBook?.coverImage}
-          initialFavorite={favoriteBooks.has(bookTitle)}
-          onToggleFavorite={() => toggleFavorite(bookTitle)}
+          isbn={selectedBook.isbn}
+          bookTitle={selectedBook.title || bookTitle}
+          author={selectedBook.author || '천선란'}
+          coverImage={selectedBook.coverImage}
+          initialFavorite={favoriteBooks.has(selectedBook.title || bookTitle)}
+          onToggleFavorite={() => toggleFavorite(selectedBook.title || bookTitle)}
           onBack={() => {
-            setCurrentView('home');
+            setCurrentView(previousView);
             setSelectedBook(null);
           }}
           onMenu={() => console.log('Menu pressed')}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+          }}
+        />
+      )}
+
+      {/* Search Screen overlay */}
+      {currentView === 'search' && (
+        <SearchScreen
+          onBack={() => setCurrentView('home')}
+          recentBooks={recentBooks}
+          recentSearches={recentSearches}
+          onAddSearch={addToRecentSearches}
+          onRemoveSearch={removeRecentSearch}
+          onClearAllSearches={clearAllRecentSearches}
+          onBookPress={handleRecentBookPress}
+          onClearAllBooks={clearAllRecentBooks}
+          searchText={searchText}
+          setSearchText={setSearchText}
+          hasSearched={hasSearched}
+          setHasSearched={setHasSearched}
+          searchResults={searchResults}
+          setSearchResults={setSearchResults}
           style={{
             position: 'absolute',
             top: 0,
@@ -526,6 +610,7 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     backgroundColor: Colors.white,
+    overflow: 'hidden',
   },
   scrollView: {
     flex: 1,
@@ -704,5 +789,24 @@ const styles = StyleSheet.create({
   navigatorContainer: {
     alignItems: 'center',
     marginTop: 8,
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    ...Typography.body2Regular,
+    color: Colors.gray600,
+    marginTop: Spacing.sm,
+  },
+  errorContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  errorText: {
+    ...Typography.body2Regular,
+    color: Colors.error,
   },
 });

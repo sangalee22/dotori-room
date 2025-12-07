@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, Text, Image, ScrollView, StatusBar, Animated, PanResponder, Dimensions } from 'react-native';
+import { StyleSheet, View, Text, Image, ScrollView, StatusBar, Animated, PanResponder, Dimensions, ActivityIndicator } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, BorderRadius } from '../styles';
@@ -14,13 +14,15 @@ import CommentIcon from '../components/CommentIcon';
 import CommentLargeIcon from '../components/CommentLargeIcon';
 import ReviewItem from '../components/ReviewItem';
 import { useToast } from '../contexts/ToastContext';
+import { fetchBookDetail, formatAuthorForDetail } from '../services/aladinApi';
 
 /**
  * BookDetail Screen
- * @param {string} bookTitle - Book title
+ * @param {string} isbn - Book ISBN (required for API)
+ * @param {string} bookTitle - Book title (fallback)
  * @param {string} bookSubtitle - Book subtitle (optional)
- * @param {string} author - Book author
- * @param {string} coverImage - Book cover image URL
+ * @param {string} author - Book author (fallback)
+ * @param {string} coverImage - Book cover image URL (fallback)
  * @param {boolean} initialFavorite - Initial favorite state
  * @param {function} onToggleFavorite - Callback when favorite is toggled
  * @param {function} onBack - Callback when back button is pressed
@@ -28,6 +30,7 @@ import { useToast } from '../contexts/ToastContext';
  * @param {object} style - Additional style overrides
  */
 export default function BookDetail({
+  isbn,
   bookTitle = '모우어',
   bookSubtitle,
   author = '천선란',
@@ -44,11 +47,16 @@ export default function BookDetail({
   const [isFavorite, setIsFavorite] = React.useState(initialFavorite);
   const { showToast } = useToast();
 
+  // API 상태 관리
+  const [bookData, setBookData] = React.useState(null);
+  const [isLoading, setIsLoading] = React.useState(false);
+  const [error, setError] = React.useState(null);
+
   // Slide in animation on mount
   React.useEffect(() => {
     Animated.spring(slideAnim, {
       toValue: 0,
-      useNativeDriver: true,
+      useNativeDriver: false,
       tension: 50,
       friction: 10,
     }).start();
@@ -58,6 +66,30 @@ export default function BookDetail({
   React.useEffect(() => {
     setIsFavorite(initialFavorite);
   }, [initialFavorite]);
+
+  // 책 상세 정보 API 호출
+  React.useEffect(() => {
+    if (!isbn) return;
+
+    const loadBookDetail = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        console.log(`📖 책 상세 정보 조회 - ISBN: ${isbn}`);
+        const data = await fetchBookDetail(isbn);
+        setBookData(data);
+        console.log('✅ 책 상세 정보 로드 완료:', data?.title);
+      } catch (err) {
+        console.error('❌ 책 상세 정보 로드 실패:', err);
+        setError('책 정보를 불러오는데 실패했습니다.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadBookDetail();
+  }, [isbn]);
 
   // Calculate header opacity based on scroll position
   const headerOpacity = scrollY.interpolate({
@@ -71,7 +103,7 @@ export default function BookDetail({
     Animated.timing(slideAnim, {
       toValue: Dimensions.get('window').width,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start(() => {
       if (onBack) {
         onBack();
@@ -102,7 +134,7 @@ export default function BookDetail({
           // Otherwise, spring back to original position
           Animated.spring(slideAnim, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: false,
             tension: 50,
             friction: 10,
           }).start();
@@ -126,6 +158,25 @@ export default function BookDetail({
       showToast('읽고 싶은 책장에 추가되었어요.');
     }
   };
+
+  // API 데이터 또는 fallback 데이터 사용
+  // title에서 제목과 부제목 분리 (예: "모우어 - 잿빛 미래의 이야기" -> "모우어", "잿빛 미래의 이야기")
+  const fullTitle = bookData?.title || bookTitle;
+  const titleParts = fullTitle.split(' - ');
+  const displayTitle = titleParts[0].trim();
+  const displaySubtitle = titleParts.length > 1
+    ? titleParts.slice(1).join(' - ').trim()
+    : (bookData?.subTitle || bookData?.subtitle || bookSubtitle);
+  const authorData = formatAuthorForDetail(bookData?.author || author);
+  const displayCover = bookData?.cover || coverImage;
+  const displayDescription = bookData?.description || '잿빛 미래 속에서도 서로를 붙잡는 마음만은 끝내 살아남는다는 걸, 아주 고요하게 증명하는 이야기.';
+  const displayPublisher = bookData?.publisher || '출판사';
+  const displayPubDate = bookData?.pubDate || '2025.01.01';
+  const displayPages = bookData?.subInfo?.itemPage ? `${bookData.subInfo.itemPage}p` : '523p';
+  // 카테고리를 2depth까지만 표시 (예: "국내도서>소설/시/희곡>한국소설" → "국내도서>소설/시/희곡")
+  const displayCategory = bookData?.categoryName
+    ? bookData.categoryName.split('>').slice(0, 2).join('>')
+    : '소설/시/희곡';
 
   return (
     <Animated.View
@@ -153,9 +204,9 @@ export default function BookDetail({
         <View style={[styles.topSection, { paddingTop: insets.top + 108 }]}>
           {/* Background Image with Blur */}
           <View style={styles.backgroundContainer}>
-            {coverImage ? (
+            {displayCover ? (
               <Image
-                source={typeof coverImage === 'string' ? { uri: coverImage } : coverImage}
+                source={typeof displayCover === 'string' ? { uri: displayCover } : displayCover}
                 style={styles.backgroundImage}
                 resizeMode="cover"
                 blurRadius={20}
@@ -170,9 +221,11 @@ export default function BookDetail({
           <View style={styles.bookInfoContainer}>
             {/* Book Cover */}
             <View style={styles.bookCover}>
-              {coverImage ? (
+              {isLoading ? (
+                <ActivityIndicator size="large" color={Colors.primary500} />
+              ) : displayCover ? (
                 <Image
-                  source={typeof coverImage === 'string' ? { uri: coverImage } : coverImage}
+                  source={typeof displayCover === 'string' ? { uri: displayCover } : displayCover}
                   style={styles.coverImage}
                   resizeMode="contain"
                 />
@@ -183,9 +236,13 @@ export default function BookDetail({
 
             {/* Book Data */}
             <View style={styles.bookData}>
-              <Text style={styles.bookTitle}>{bookTitle}</Text>
-              {bookSubtitle && <Text style={styles.bookSubtitle}>{bookSubtitle}</Text>}
-              <Text style={styles.bookAuthor}>{author}</Text>
+              <Text style={styles.bookTitle}>{displayTitle}</Text>
+              {displaySubtitle && <Text style={styles.bookSubtitle}>{displaySubtitle}</Text>}
+              <Text style={styles.bookAuthor}>
+                {authorData.length > 0
+                  ? authorData[0]?.name
+                  : author.split(',')[0].trim()}
+              </Text>
             </View>
           </View>
         </View>
@@ -196,7 +253,7 @@ export default function BookDetail({
           <View style={styles.bookSummarySection}>
             <View style={styles.bookSummaryContainer}>
               <Text style={styles.bookSummaryText}>
-                잿빛 미래 속에서도 서로를 붙잡는 마음만은 끝내 살아남는다는 걸, 아주 고요하게 증명하는 이야기.
+                {displayDescription}
               </Text>
               <View style={styles.bookSummaryIcon}>
                 <CommentLargeIcon width={60} height={60} />
@@ -207,22 +264,35 @@ export default function BookDetail({
             <View style={styles.bookInfoDetails}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>저자</Text>
-                <Text style={styles.infoValue}>천선란</Text>
+                <View style={styles.infoValueColumn}>
+                  {authorData.length > 0 ? (
+                    authorData.map((authorItem, index) => (
+                      <Text key={index}>
+                        <Text style={styles.infoValue}>{authorItem.name}</Text>
+                        {authorItem.role && (
+                          <Text style={styles.infoValueRole}> {authorItem.role}</Text>
+                        )}
+                      </Text>
+                    ))
+                  ) : (
+                    <Text style={styles.infoValue}>{author}</Text>
+                  )}
+                </View>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>출판사</Text>
                 <View style={styles.infoValueRow}>
-                  <Text style={styles.infoValue}>2025.01.01</Text>
-                  <Text style={styles.infoValueSecondary}> 출간</Text>
+                  <Text style={styles.infoValue}>{displayPublisher}</Text>
+                  <Text style={styles.infoValueSecondary}> {displayPubDate}</Text>
                 </View>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>카테고리</Text>
-                <Text style={styles.infoValue}>소설/시/희곡</Text>
+                <Text style={styles.infoValue}>{displayCategory}</Text>
               </View>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>분량</Text>
-                <Text style={styles.infoValue}>523p</Text>
+                <Text style={styles.infoValue}>{displayPages}</Text>
               </View>
             </View>
           </View>
@@ -356,7 +426,7 @@ export default function BookDetail({
       <DefaultHeader
         onBack={handleBack}
         onMenu={handleFavoriteToggle}
-        title={bookTitle}
+        title={displayTitle}
         titleOpacity={headerOpacity}
         gradientOpacity={headerOpacity}
         gradientStyle={{ paddingTop: insets.top }}
@@ -449,21 +519,19 @@ const styles = StyleSheet.create({
   },
   bookCover: {
     height: 246,
-    width: 169,
-    borderRadius: BorderRadius.sm,
-    borderColor: Colors.gray100,
-    overflow: 'hidden',
+    width: 600,
     alignSelf: 'center',
     alignItems: 'center',
     justifyContent: 'center',
   },
   coverImage: {
-    width: '100%',
-    height: '100%',
+    height: 246,
+    width: 600,
+    borderRadius: 20,
   },
   coverPlaceholder: {
-    width: '100%',
-    height: '100%',
+    width: 'auto',
+    height: 246,
     backgroundColor: Colors.gray50,
   },
   bookData: {
@@ -476,7 +544,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bookSubtitle: {
-    ...Typography.headline3Medium,
+    ...Typography.subtitle1Regular,
     color: Colors.gray900,
     textAlign: 'center',
     marginTop: 2,
@@ -514,7 +582,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   bookSummaryText: {
-    ...Typography.body1Medium,
+    ...Typography.body1Regular,
     color: Colors.gray900,
   },
   bookSummaryIcon: {
@@ -528,21 +596,35 @@ const styles = StyleSheet.create({
   },
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     minHeight: 24,
   },
   infoLabel: {
     ...Typography.body1Regular,
     color: Colors.gray600,
     width: 70,
+    flexShrink: 0,
   },
   infoValue: {
     ...Typography.body1Medium,
     color: Colors.gray900,
+    flexShrink: 1,
+  },
+  infoValueRole: {
+    ...Typography.body1Regular,
+    color: Colors.gray700,
+    flexShrink: 1,
   },
   infoValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    flexWrap: 'wrap',
+  },
+  infoValueColumn: {
+    flexDirection: 'column',
+    flex: 1,
+    gap: 4,
   },
   infoValueSecondary: {
     ...Typography.body1Regular,
