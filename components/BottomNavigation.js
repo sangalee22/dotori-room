@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+// removed LinearGradient - use solid background instead
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../styles';
 import Svg, { Path, Circle, Ellipse, G } from 'react-native-svg';
@@ -117,11 +117,7 @@ export default function BottomNavigation({ activeTab = 'home', onTabPress, style
   ];
 
   return (
-    <LinearGradient
-      colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 0.84)', '#FFFFFF']}
-      locations={[0, 0.4451, 1]}
-      style={[styles.container, { paddingBottom: insets.bottom }, style]}
-    >
+    <View style={[styles.container, { paddingBottom: insets.bottom, backgroundColor: Colors.white }, style]}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (
@@ -138,7 +134,7 @@ export default function BottomNavigation({ activeTab = 'home', onTabPress, style
           </TouchableOpacity>
         );
       })}
-    </LinearGradient>
+    </View>
   );
 }
 

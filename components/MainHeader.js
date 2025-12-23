@@ -16,8 +16,8 @@ export default function MainHeader({ onSearch }) {
       {/* Header Background Gradient */}
       <View style={styles.gradientContainer}>
         <LinearGradient
-          colors={['rgba(255, 255, 255, 1)', 'rgba(255, 255, 255, 0)']}
-          locations={[0, 1]}
+          colors={['#FFFFFF', 'rgba(255,255,255,0.90)', 'rgba(255,255,255,0.00)']}
+          locations={[0, 0.5865, 1]}
           style={styles.gradient}
         />
       </View>
@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 52,
+    height: 60,
     zIndex: 0,
   },
   gradient: {
@@ -51,7 +51,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingLeft: Spacing.lg,
     paddingRight: Spacing.md,
-    height: 52,
+    height: 60,
     position: 'relative',
     zIndex: 1,
   },

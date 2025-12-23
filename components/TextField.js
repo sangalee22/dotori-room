@@ -1,22 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, forwardRef } from 'react';
 import { TextInput, StyleSheet, View, TouchableOpacity } from 'react-native';
 import { Colors, BorderRadius, Spacing } from '../styles';
 import DeleteIcon from './DeleteIcon';
 
-export default function TextField({
-  value = '',
-  onChangeText,
-  placeholder,
-  disabled = false,
-  secureTextEntry = false,
-  autoFocus = false,
-  placeholderTextColor,
-  style,
-  showClearButton = false,
-  onClear,
-  onSubmitEditing,
-  returnKeyType = 'done',
-}) {
+const TextField = forwardRef((
+  {
+    value = '',
+    onChangeText,
+    placeholder,
+    disabled = false,
+    secureTextEntry = false,
+    autoFocus = false,
+    placeholderTextColor,
+    style,
+    showClearButton = false,
+    onClear,
+    onSubmitEditing,
+    returnKeyType = 'done',
+    onFocus,
+    onBlur,
+  },
+  ref
+) => {
   const [isFocused, setIsFocused] = useState(false);
 
   const handleClear = () => {
@@ -39,13 +44,20 @@ export default function TextField({
     <View style={[styles.container, style]}>
       <View style={containerStyles}>
         <TextInput
+          ref={ref}
           style={styles.input}
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor || Colors.gray400}
           value={value}
           onChangeText={onChangeText}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
+          onFocus={(e) => {
+            setIsFocused(true);
+            if (onFocus) onFocus(e);
+          }}
+          onBlur={(e) => {
+            setIsFocused(false);
+            if (onBlur) onBlur(e);
+          }}
           editable={!disabled}
           secureTextEntry={secureTextEntry}
           autoFocus={autoFocus}
@@ -54,13 +66,17 @@ export default function TextField({
         />
         {showClearButton && value && !disabled ? (
           <TouchableOpacity onPress={handleClear} style={styles.clearButton}>
-            <DeleteIcon width={24} height={24} color={Colors.gray400} />
+            <DeleteIcon width={20} height={20} color={Colors.gray300} />
           </TouchableOpacity>
         ) : null}
       </View>
     </View>
   );
-}
+});
+
+TextField.displayName = 'TextField';
+
+export default TextField;
 
 const styles = StyleSheet.create({
   container: {

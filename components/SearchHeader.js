@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Spacing } from '../styles';
@@ -10,13 +10,17 @@ import TextField from './TextField';
  * SearchHeader Component
  * Header with back button and search input field
  */
-export default function SearchHeader({
-  searchText,
-  onSearchTextChange,
-  onBack,
-  onSearch,
-  placeholder = '책 또는 저자를 검색해주세요',
-}) {
+const SearchHeader = forwardRef((
+  {
+    searchText,
+    onSearchTextChange,
+    onBack,
+    onSearch,
+    onClear,
+    placeholder = '책 또는 저자를 검색해주세요',
+  },
+  ref
+) => {
   return (
     <View style={styles.container}>
       <LinearGradient
@@ -35,18 +39,24 @@ export default function SearchHeader({
         </IconButton>
 
         <TextField
+          ref={ref}
           value={searchText}
           onChangeText={onSearchTextChange}
           placeholder={placeholder}
           showClearButton={true}
           autoFocus
           onSubmitEditing={onSearch}
+          onClear={onClear}
           returnKeyType="search"
         />
       </View>
     </View>
   );
-}
+});
+
+SearchHeader.displayName = 'SearchHeader';
+
+export default SearchHeader;
 
 const styles = StyleSheet.create({
   container: {

@@ -31,6 +31,7 @@ export default function SearchScreen({
   style,
 }) {
   const [isSearching, setIsSearching] = useState(false);
+  const searchHeaderRef = React.useRef(null);
 
   // Slide in animation
   const slideAnim = React.useRef(new Animated.Value(Dimensions.get('window').width)).current;
@@ -98,15 +99,30 @@ export default function SearchScreen({
     }
   };
 
+  // Handle clear button press - reset search
+  const handleClearSearch = () => {
+    setSearchText('');
+    setHasSearched(false);
+    setSearchResults([]);
+    // Focus on search input after clearing
+    if (searchHeaderRef.current) {
+      setTimeout(() => {
+        searchHeaderRef.current?.focus();
+      }, 0);
+    }
+  };
+
   return (
     <Animated.View style={[styles.animatedContainer, style, { transform: [{ translateX: slideAnim }] }]}>
       <SafeAreaView style={styles.container} edges={['top']}>
         {/* Header with gradient background */}
         <SearchHeader
+          ref={searchHeaderRef}
           searchText={searchText}
           onSearchTextChange={setSearchText}
           onBack={onBack}
           onSearch={handleSearch}
+          onClear={handleClearSearch}
         />
 
         {/* Scrollable content */}
@@ -318,7 +334,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
   },
   booksScrollView: {
-    marginHorizontal: -Spacing.sm,
+    marginHorizontal: 0,
   },
   booksContainer: {
     gap: Spacing.sm,

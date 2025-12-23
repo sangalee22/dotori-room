@@ -14,7 +14,7 @@ export default function SearchChip({ text, onRemove, onPress }) {
         <Text style={styles.text}>{text}</Text>
       </TouchableOpacity>
       <TouchableOpacity onPress={onRemove} style={styles.closeButton}>
-        <DeleteIcon width={20} height={20} color={Colors.gray500} />
+        <DeleteIcon width={16} height={16} color={Colors.gray300} />
       </TouchableOpacity>
     </View>
   );

@@ -16,6 +16,7 @@ import Navigator from './components/Navigator';
 import BottomNavigation from './components/BottomNavigation';
 import BookDetail from './screens/BookDetail';
 import SearchScreen from './screens/SearchScreen';
+import CreateReadingRoom from './screens/CreateReadingRoom';
 import { Colors, Typography, FontWeights, Spacing, BorderRadius } from './styles';
 import { fetchBestsellers, CATEGORY_LIST } from './services/aladinApi';
 
@@ -32,7 +33,7 @@ export default function App() {
   const [activeTab, setActiveTab] = React.useState('종합');
   const [activeBestReviewPage, setActiveBestReviewPage] = React.useState(0);
   const [activeBottomTab, setActiveBottomTab] = React.useState('home');
-  const [currentView, setCurrentView] = React.useState('home'); // 'home', 'bookDetail', or 'search'
+  const [currentView, setCurrentView] = React.useState('home'); // 'home', 'bookDetail', 'search', or 'createRoom'
   const [previousView, setPreviousView] = React.useState('home'); // Track previous view for back navigation
   const [selectedBook, setSelectedBook] = React.useState(null);
   const [favoriteBooks, setFavoriteBooks] = React.useState(new Set()); // Store favorite book titles
@@ -100,7 +101,7 @@ export default function App() {
     setRecentBooks([]);
   };
 
-  // Handle book press from recent books
+  // Handle book press from recent books or search results
   const handleRecentBookPress = (book) => {
     setSelectedBook(book);
     addToRecentBooks(book); // Update recent books order
@@ -548,8 +549,8 @@ export default function App() {
         />
       </SafeAreaView>
 
-      {/* BookDetail overlay */}
-      {currentView === 'bookDetail' && selectedBook && (
+      {/* BookDetail overlay - show when in bookDetail or createRoom view */}
+      {(currentView === 'bookDetail' || currentView === 'createRoom') && selectedBook && (
         <BookDetail
           isbn={selectedBook.isbn}
           bookTitle={selectedBook.title || bookTitle}
@@ -558,25 +559,36 @@ export default function App() {
           initialFavorite={favoriteBooks.has(selectedBook.title || bookTitle)}
           onToggleFavorite={() => toggleFavorite(selectedBook.title || bookTitle)}
           onBack={() => {
-            setCurrentView(previousView);
             setSelectedBook(null);
+            setCurrentView(previousView);
           }}
           onMenu={() => console.log('Menu pressed')}
+          onCreateRoom={(bookData) => {
+            setSelectedBook(bookData);
+            setPreviousView(currentView);
+            setCurrentView('createRoom');
+          }}
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
             right: 0,
             bottom: 0,
-            zIndex: 100,
+            zIndex: 200,
           }}
         />
       )}
 
-      {/* Search Screen overlay */}
-      {currentView === 'search' && (
+      {/* Search Screen overlay - stays open until closed */}
+      {(currentView === 'search' || currentView === 'bookDetail') && previousView === 'search' && (
         <SearchScreen
-          onBack={() => setCurrentView('home')}
+          onBack={() => {
+            setCurrentView('home');
+            // 검색 페이지를 벗어날 때 검색 상태 초기화
+            setSearchText('');
+            setHasSearched(false);
+            setSearchResults([]);
+          }}
           recentBooks={recentBooks}
           recentSearches={recentSearches}
           onAddSearch={addToRecentSearches}
@@ -597,6 +609,68 @@ export default function App() {
             right: 0,
             bottom: 0,
             zIndex: 100,
+          }}
+        />
+      )}
+
+      {/* Search Screen overlay - initial search view */}
+      {currentView === 'search' && previousView !== 'bookDetail' && (
+        <SearchScreen
+          onBack={() => {
+            setCurrentView('home');
+            // 검색 페이지를 벗어날 때 검색 상태 초기화
+            setSearchText('');
+            setHasSearched(false);
+            setSearchResults([]);
+          }}
+          recentBooks={recentBooks}
+          recentSearches={recentSearches}
+          onAddSearch={addToRecentSearches}
+          onRemoveSearch={removeRecentSearch}
+          onClearAllSearches={clearAllRecentSearches}
+          onBookPress={handleRecentBookPress}
+          onClearAllBooks={clearAllRecentBooks}
+          searchText={searchText}
+          setSearchText={setSearchText}
+          hasSearched={hasSearched}
+          setHasSearched={setHasSearched}
+          searchResults={searchResults}
+          setSearchResults={setSearchResults}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 100,
+          }}
+        />
+      )}
+
+      {/* CreateReadingRoom overlay - show on top of BookDetail */}
+      {currentView === 'createRoom' && selectedBook && (
+        <CreateReadingRoom
+          bookTitle={selectedBook.title}
+          bookSubtitle={selectedBook.subtitle}
+          author={selectedBook.author}
+          coverImage={selectedBook.coverImage}
+          onBack={() => {
+            // Keep selectedBook to show BookDetail when going back
+            setCurrentView(previousView);
+          }}
+          onNext={() => {
+            console.log('Next step - room created');
+            // Navigate to next step or back to home
+            setSelectedBook(null);
+            setCurrentView('home');
+          }}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 300,
           }}
         />
       )}

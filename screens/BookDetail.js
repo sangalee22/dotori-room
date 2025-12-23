@@ -13,6 +13,7 @@ import SimbolFillIcon from '../components/SimbolFillIcon';
 import CommentIcon from '../components/CommentIcon';
 import CommentLargeIcon from '../components/CommentLargeIcon';
 import ReviewItem from '../components/ReviewItem';
+import BookTopSection from '../components/BookTopSection';
 import { useToast } from '../contexts/ToastContext';
 import { fetchBookDetail, formatAuthorForDetail } from '../services/aladinApi';
 
@@ -39,6 +40,7 @@ export default function BookDetail({
   onToggleFavorite,
   onBack,
   onMenu,
+  onCreateRoom,
   style,
 }) {
   const insets = useSafeAreaInsets();
@@ -201,51 +203,14 @@ export default function BookDetail({
         scrollEventThrottle={16}
       >
         {/* Top Section with Book Cover and Info */}
-        <View style={[styles.topSection, { paddingTop: insets.top + 108 }]}>
-          {/* Background Image with Blur */}
-          <View style={styles.backgroundContainer}>
-            {displayCover ? (
-              <Image
-                source={typeof displayCover === 'string' ? { uri: displayCover } : displayCover}
-                style={styles.backgroundImage}
-                resizeMode="cover"
-                blurRadius={20}
-              />
-            ) : (
-              <View style={styles.backgroundPlaceholder} />
-            )}
-            <View style={styles.overlay} />
-          </View>
-
-          {/* Book Info */}
-          <View style={styles.bookInfoContainer}>
-            {/* Book Cover */}
-            <View style={styles.bookCover}>
-              {isLoading ? (
-                <ActivityIndicator size="large" color={Colors.primary500} />
-              ) : displayCover ? (
-                <Image
-                  source={typeof displayCover === 'string' ? { uri: displayCover } : displayCover}
-                  style={styles.coverImage}
-                  resizeMode="contain"
-                />
-              ) : (
-                <View style={styles.coverPlaceholder} />
-              )}
-            </View>
-
-            {/* Book Data */}
-            <View style={styles.bookData}>
-              <Text style={styles.bookTitle}>{displayTitle}</Text>
-              {displaySubtitle && <Text style={styles.bookSubtitle}>{displaySubtitle}</Text>}
-              <Text style={styles.bookAuthor}>
-                {authorData.length > 0
-                  ? authorData[0]?.name
-                  : author.split(',')[0].trim()}
-              </Text>
-            </View>
-          </View>
-        </View>
+        <BookTopSection
+          bookTitle={displayTitle}
+          bookSubtitle={displaySubtitle}
+          author={authorData.length > 0 ? authorData[0]?.name : author.split(',')[0].trim()}
+          coverImage={displayCover}
+          paddingTop={insets.top + 108}
+          isLoading={isLoading}
+        />
 
         {/* Section Detail */}
         <View style={styles.sectionDetail}>
@@ -443,8 +408,8 @@ export default function BookDetail({
       {/* Bottom Buttons */}
       <View style={[styles.bottomButtons, { paddingBottom: insets.bottom + 40 }]}>
         <LinearGradient
-          colors={['rgba(255, 255, 255, 0)', 'rgba(255, 255, 255, 1)']}
-          locations={[0, 1]}
+          colors={['rgba(255,255,255,0.00)', 'rgba(255,255,255,0.84)', '#FFFFFF']}
+          locations={[0, 0.4451, 1]}
           style={styles.bottomGradient}
         />
         <View style={styles.buttonGroup}>
@@ -452,7 +417,17 @@ export default function BookDetail({
             variant="outline"
             size="xlarge"
             style={styles.readTogetherButton}
-            onPress={() => {}}
+            onPress={() => {
+              if (onCreateRoom) {
+                onCreateRoom({
+                  isbn,
+                  title: displayTitle,
+                  subtitle: displaySubtitle,
+                  author: authorData.length > 0 ? authorData[0]?.name : author.split(',')[0].trim(),
+                  coverImage: displayCover,
+                });
+              }
+            }}
           >
             같이 읽기
           </Button>
@@ -477,83 +452,6 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
-  },
-  topSection: {
-    position: 'relative',
-    borderBottomLeftRadius: 50,
-    borderBottomRightRadius: 50,
-    paddingTop: 108,
-    paddingBottom: 32,
-    overflow: 'hidden',
-  },
-  backgroundContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    overflow: 'hidden',
-  },
-  backgroundImage: {
-    width: '100%',
-    height: '100%',
-  },
-  backgroundPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: Colors.gray100,
-  },
-  overlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  bookInfoContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 16,
-  },
-  bookCover: {
-    height: 246,
-    width: 600,
-    alignSelf: 'center',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  coverImage: {
-    height: 246,
-    width: 600,
-    borderRadius: 20,
-  },
-  coverPlaceholder: {
-    width: 'auto',
-    height: 246,
-    backgroundColor: Colors.gray50,
-  },
-  bookData: {
-    alignItems: 'center',
-    paddingHorizontal: Spacing.md,
-  },
-  bookTitle: {
-    ...Typography.headline2Bold,
-    color: Colors.gray900,
-    textAlign: 'center',
-  },
-  bookSubtitle: {
-    ...Typography.subtitle1Regular,
-    color: Colors.gray900,
-    textAlign: 'center',
-    marginTop: 2,
-  },
-  bookAuthor: {
-    ...Typography.body1Regular,
-    color: Colors.gray700,
-    textAlign: 'center',
-    marginTop: 8,
   },
   contentSection: {
     padding: Spacing.md,

@@ -227,7 +227,7 @@ export async function searchBooks(query, queryType = 'Keyword', maxResults = 20)
       ttbkey: ALADIN_API_KEY,
       Query: query,
       QueryType: queryType,
-      MaxResults: maxResults.toString(),
+      MaxResults: (maxResults * 2).toString(), // 필터링 후 충분한 결과를 위해 2배 요청
       start: '1',
       SearchTarget: 'Book',
       output: 'JS',
@@ -247,18 +247,32 @@ export async function searchBooks(query, queryType = 'Keyword', maxResults = 20)
     const data = await response.json();
 
     if (data && data.item && Array.isArray(data.item)) {
-      return data.item.map((book) => ({
-        title: book.title,
-        author: cleanAuthorName(book.author), // 저자명 정리 (목록용)
-        coverImage: book.cover,
-        isbn: book.isbn13 || book.isbn,
-        publisher: book.publisher,
-        pubDate: book.pubDate,
-        description: book.description,
-        priceStandard: book.priceStandard,
-        priceSales: book.priceSales,
-        link: book.link,
-      }));
+      // 제외할 카테고리 (만화책, 어린이)
+      const excludedCategories = ['만화', '어린이', '코믹'];
+      
+      const filteredBooks = data.item
+        .filter((book) => {
+          // 카테고리명에 제외 키워드가 포함되어 있으면 필터링
+          const categoryName = book.categoryName || '';
+          return !excludedCategories.some(keyword => 
+            categoryName.includes(keyword)
+          );
+        })
+        .slice(0, maxResults) // 원래 요청한 개수만 반환
+        .map((book) => ({
+          title: book.title,
+          author: cleanAuthorName(book.author), // 저자명 정리 (목록용)
+          coverImage: book.cover,
+          isbn: book.isbn13 || book.isbn,
+          publisher: book.publisher,
+          pubDate: book.pubDate,
+          description: book.description,
+          priceStandard: book.priceStandard,
+          priceSales: book.priceSales,
+          link: book.link,
+        }));
+      
+      return filteredBooks;
     }
 
     return [];

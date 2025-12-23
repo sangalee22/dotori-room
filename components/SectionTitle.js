@@ -5,25 +5,35 @@ import { Colors, Typography, Spacing } from '../styles';
 /**
  * SectionTitle Component
  * @param {ReactNode} children - Section title text
+ * @param {number|string} count - Optional count to display on the right
  * @param {object} style - Additional style overrides
  */
-export default function SectionTitle({ children, style }) {
+export default function SectionTitle({ children, count, style }) {
   return (
     <View style={[styles.container, style]}>
       <Text style={styles.title}>{children}</Text>
+      {count !== undefined && count !== null && (
+        <Text style={styles.count}>{count}</Text>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
     height: 32,
     paddingHorizontal: Spacing.sm,
     paddingVertical: Spacing.xs,
-    justifyContent: 'center',
   },
   title: {
     ...Typography.body1Medium,
     color: Colors.gray900,
+  },
+  count: {
+    ...Typography.body1ExtraBold,
+    color: Colors.primary900,
   },
 });
